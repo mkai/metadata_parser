@@ -6,9 +6,9 @@ import urllib2
 import urlparse
 
 try:
-    from bs4 import BeautifulSoup
+    from bs4 import BeautifulSoup, BeautifulStoneSoup
 except:
-    from BeautifulSoup import BeautifulSoup
+    from BeautifulSoup import BeautifulSoup, BeautifulStoneSoup
 
 try:
     from io import BytesIO as _StringIO
@@ -28,6 +28,19 @@ RE_url_parts= re.compile("""(https?\:\/\/[^\/]*(?:\:[\d]+?)?)(\/[^?#]*)?""", re.
 
 ONLY_PARSE_SAFE_FILES = False
 PARSE_SAFE_FILES = ( 'html','txt','json','htm','xml','php','asp','aspx','ece','xhtml','cfm','cgi')
+
+
+def decode_entities(text):
+    """Decode HTML entities in the given text."""
+    # from: http://stackoverflow.com/a/1209015
+    if not text:
+        return text
+    text = unicode(BeautifulStoneSoup(text, convertEntities=BeautifulStoneSoup.HTML_ENTITIES))
+    other_entities = {'&amp;': u'&'}
+    for entity, unicode_char in other_entities.items():
+        text = text.replace(entity, unicode_char)
+    return text
+
 
 ## This is taken from the following blogpost.  thanks.
 ## http://hustoknow.blogspot.com/2011/05/urlopen-opens-404.html
@@ -241,14 +254,14 @@ class MetadataParser(object):
         ogs = doc.html.head.findAll('meta',attrs={'property':re.compile(r'^og')})
         for og in ogs:
             try:
-                self.metadata['og'][og[u'property'][3:]] = og[u'content']
+                self.metadata['og'][og[u'property'][3:]] = decode_entities(og[u'content'])
             except ( AttributeError , KeyError ):
                 pass
 
         twitters = doc.html.head.findAll('meta',attrs={'name':re.compile(r'^twitter')})
         for twitter in twitters:
             try:
-                self.metadata['twitter'][twitter[u'name'][8:]] = twitter[u'value']
+                self.metadata['twitter'][twitter[u'name'][8:]] = decode_entities(twitter[u'value'])
             except ( AttributeError , KeyError ):
                 pass
 
@@ -259,6 +272,7 @@ class MetadataParser(object):
                 broken_title= RE_bad_title.match("%s"%doc.html.head.title)
                 if broken_title:
                     self.metadata['page']['title']= broken_title.groups(0)[0][:self.LEN_MAX_TITLE]
+            self.metadata['page']['title'] = decode_entities(self.metadata['page']['title'])
         except AttributeError:
             pass
 
@@ -305,9 +319,9 @@ class MetadataParser(object):
                     if 'content' in attrs:
                         v= attrs['content'].strip()
                     if ( len(k) > 3 ) and ( k[:3] == 'dc:'):
-                        self.metadata['dc'][k[3:]]= v
+                        self.metadata['dc'][k[3:]]= decode_entities(v)
                     else:
-                        self.metadata['meta'][k]= v
+                        self.metadata['meta'][k]= decode_entities(v)
             except AttributeError:
                 pass
 
